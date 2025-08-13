@@ -22,7 +22,7 @@ app.use(
     resave: false,
     saveUninitialized: false,
     cookie: {
-      secure: false, // Set to true in production with HTTPS
+      secure: process.env.NODE_ENV === "production", // Secure in production
       httpOnly: true,
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
     },
@@ -63,13 +63,14 @@ app.use((req, res, next) => {
 (async () => {
   const server = await registerRoutes(app);
 
-  // Serve static files from React build folder
-  app.use(express.static(path.join(__dirname, "..", "client", "build")));
+  // ✅ Serve React frontend only in production
+  if (process.env.NODE_ENV === "production") {
+    app.use(express.static(path.join(__dirname, "..", "client", "build")));
 
-  // Catch-all route for React (non-API routes)
-  app.get("*", (req, res) => {
-    res.sendFile(path.join(__dirname, "..", "client", "build", "index.html"));
-  });
+    app.get("*", (req, res) => {
+      res.sendFile(path.join(__dirname, "..", "client", "build", "index.html"));
+    });
+  }
 
   // Error handler
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
@@ -82,6 +83,7 @@ app.use((req, res, next) => {
   // Start server
   const port = parseInt(process.env.PORT || '3000', 10);
   server.listen(port, '0.0.0.0', () => {
-    console.log(`Serving on port ${port}`);
+    console.log(`🚀 Server running on port ${port} in ${process.env.NODE_ENV} mode`);
   });
+
 })();
