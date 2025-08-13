@@ -6,7 +6,7 @@
     "dev": "tsx server/index.ts",
     "build": "esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",
     "start": "node dist/index.js",
-    "postinstall": "cd client && npm install && npm run build && cd .. && npm run build"
+    "postinstall": "cd client && npm install && npm run build && cd .. && npm run build && mkdir -p dist/client && cp -r client/build/* dist/client/"
   },
   "dependencies": {
     "@neondatabase/serverless": "^0.10.4",
@@ -21,7 +21,8 @@
     "passport-local": "^1.0.0",
     "ws": "^8.18.0",
     "zod": "^3.24.1",
-    "zod-validation-error": "^3.4.0"
+    "zod-validation-error": "^3.4.0",
+    "path": "^0.12.7"
   },
   "devDependencies": {
     "@types/express": "^5.0.0",
@@ -34,8 +35,5 @@
     "esbuild": "^0.24.2",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2"
-  },
-  "engines": {
-    "node": ">=18.x"
   }
 }
