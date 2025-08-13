@@ -5,6 +5,10 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { registerRoutes } from "./routes";
 
+// For __dirname in ES Modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 declare module "express-session" {
   interface SessionData {
     authenticated?: boolean;
@@ -23,64 +27,42 @@ app.use(
     resave: false,
     saveUninitialized: false,
     cookie: {
-      secure: process.env.NODE_ENV === "production",
+      secure: process.env.NODE_ENV === "production", // Secure in production
       httpOnly: true,
-      maxAge: 24 * 60 * 60 * 1000,
+      maxAge: 24 * 60 * 60 * 1000, // 24 hours
     },
   })
 );
 
 // Request logging middleware
-app.use((req: Request, res: Response, next: NextFunction) => {
+app.use((req, res, next) => {
   const start = Date.now();
-  const pathUrl = req.path;
-  let capturedJsonResponse: Record<string, any> | undefined = undefined;
-
-  const originalJson = res.json;
-  res.json = function (body) {
-    capturedJsonResponse = body;
-    return originalJson.call(this, body);
-  };
-
   res.on("finish", () => {
     const duration = Date.now() - start;
-    console.log(
-      `[${new Date().toISOString()}] ${req.method} ${pathUrl} ${res.statusCode} - ${duration}ms`,
-      capturedJsonResponse ? JSON.stringify(capturedJsonResponse) : ""
-    );
+    console.log(`${req.method} ${req.originalUrl} - ${duration}ms`);
   });
-
   next();
 });
 
-// Register backend API routes
+// Register your API routes
 registerRoutes(app);
 
-// ---------- Serve Frontend in Production ----------
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
+// Serve frontend in production
 if (process.env.NODE_ENV === "production") {
-  app.use(express.static(path.join(__dirname, "client", "build")));
+  const clientBuildPath = path.join(__dirname, "client");
+  app.use(express.static(clientBuildPath));
 
-  // Health check or backend root route
+  app.get("*", (req, res) => {
+    res.sendFile(path.join(clientBuildPath, "index.html"));
+  });
+} else {
+  // Dev mode root endpoint
   app.get("/", (req, res) => {
     res.send("Backend is running 🚀");
   });
-
-  // Catch-all for React frontend
-  app.get("*", (req, res) => {
-    res.sendFile(path.join(__dirname, "client", "build", "index.html"));
-  });
-} else {
-  // In dev mode
-  app.get("/", (req, res) => {
-    res.send("Backend is running in development 🚀");
-  });
 }
 
-// ---------- Start Server ----------
-const port = parseInt(process.env.PORT || "3000", 10);
-app.listen(port, "0.0.0.0", () => {
-  console.log(`✅ Server is running on port ${port}`);
+const port = process.env.PORT || 5000;
+app.listen(port, () => {
+  console.log(`Server is running on port ${port}`);
 });
