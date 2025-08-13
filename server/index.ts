@@ -2,6 +2,7 @@ import 'dotenv/config';
 import express, { type Request, Response, NextFunction } from "express";
 import session from "express-session";
 import path from "path";
+import { fileURLToPath } from "url";
 import { registerRoutes } from "./routes";
 
 declare module "express-session" {
@@ -22,68 +23,64 @@ app.use(
     resave: false,
     saveUninitialized: false,
     cookie: {
-      secure: process.env.NODE_ENV === "production", // Secure in production
+      secure: process.env.NODE_ENV === "production",
       httpOnly: true,
-      maxAge: 24 * 60 * 60 * 1000, // 24 hours
+      maxAge: 24 * 60 * 60 * 1000,
     },
   })
 );
 
 // Request logging middleware
-app.use((req, res, next) => {
+app.use((req: Request, res: Response, next: NextFunction) => {
   const start = Date.now();
   const pathUrl = req.path;
   let capturedJsonResponse: Record<string, any> | undefined = undefined;
 
-  const originalResJson = res.json;
-  res.json = function (bodyJson, ...args) {
-    capturedJsonResponse = bodyJson;
-    return originalResJson.apply(res, [bodyJson, ...args]);
+  const originalJson = res.json;
+  res.json = function (body) {
+    capturedJsonResponse = body;
+    return originalJson.call(this, body);
   };
 
   res.on("finish", () => {
     const duration = Date.now() - start;
-    if (pathUrl.startsWith("/api")) {
-      let logLine = `${req.method} ${pathUrl} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) {
-        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
-      }
-
-      if (logLine.length > 80) {
-        logLine = logLine.slice(0, 79) + "…";
-      }
-
-      console.log(logLine);
-    }
+    console.log(
+      `[${new Date().toISOString()}] ${req.method} ${pathUrl} ${res.statusCode} - ${duration}ms`,
+      capturedJsonResponse ? JSON.stringify(capturedJsonResponse) : ""
+    );
   });
 
   next();
 });
 
-(async () => {
-  const server = await registerRoutes(app);
+// Register backend API routes
+registerRoutes(app);
 
-  // ✅ Serve React frontend only in production
-  if (process.env.NODE_ENV === "production") {
-    app.use(express.static(path.join(__dirname, "..", "client", "build")));
+// ---------- Serve Frontend in Production ----------
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
-    app.get("*", (req, res) => {
-      res.sendFile(path.join(__dirname, "..", "client", "build", "index.html"));
-    });
-  }
+if (process.env.NODE_ENV === "production") {
+  app.use(express.static(path.join(__dirname, "client", "build")));
 
-  // Error handler
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-    const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
-    res.status(status).json({ message });
-    throw err;
+  // Health check or backend root route
+  app.get("/", (req, res) => {
+    res.send("Backend is running 🚀");
   });
 
-  // Start server
-  const port = parseInt(process.env.PORT || '3000', 10);
-  server.listen(port, '0.0.0.0', () => {
-    console.log(`🚀 Server running on port ${port} in ${process.env.NODE_ENV} mode`);
+  // Catch-all for React frontend
+  app.get("*", (req, res) => {
+    res.sendFile(path.join(__dirname, "client", "build", "index.html"));
   });
+} else {
+  // In dev mode
+  app.get("/", (req, res) => {
+    res.send("Backend is running in development 🚀");
+  });
+}
 
-})();
+// ---------- Start Server ----------
+const port = parseInt(process.env.PORT || "3000", 10);
+app.listen(port, "0.0.0.0", () => {
+  console.log(`✅ Server is running on port ${port}`);
+});
