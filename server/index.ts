@@ -52,7 +52,7 @@ app.use((req, res, next) => {
         logLine = logLine.slice(0, 79) + "…";
       }
 
-      log(logLine);
+      console.log(logLine);
     }
   });
 
@@ -78,6 +78,6 @@ app.use((req, res, next) => {
   // It is the only port that is not firewalled.
   const port = parseInt(process.env.PORT || '3000', 10);
   server.listen(port, '0.0.0.0', () => {
-    log(`serving on port ${port}`);
+    console.log(`Serving on port ${port}`);
 });
 })();
